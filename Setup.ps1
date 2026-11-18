@@ -18,7 +18,7 @@ if ($url -cnotmatch '^https://discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+/?$
 }
 
 try {
-    $payload = @{ content = 'Hundred Face setup check. Game activity notifications will appear in this channel.'; allowed_mentions = @{ parse = @() } }
+    $payload = @{ content = "**Hundred Face | Setup complete**`n`nGame activity notifications will appear in this channel."; allowed_mentions = @{ parse = @() } }
     Invoke-RestMethod -Uri ($url.TrimEnd('/') + '?wait=true') -Method Post -ContentType 'application/json' -Body ($payload | ConvertTo-Json -Compress) -TimeoutSec 15 -ErrorAction Stop | Out-Null
 } catch {
     Write-Host 'Discord could not deliver the setup message. Check the webhook and internet connection, then run setup again.'

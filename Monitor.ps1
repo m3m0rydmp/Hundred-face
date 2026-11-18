@@ -70,6 +70,11 @@ function Format-Duration([long]$seconds) {
     return ('{0}h {1}m' -f [math]::Floor($minutes / 60), ($minutes % 60))
 }
 
+function Format-GameName([string]$name) {
+    $singleLine = $name -replace '\s+', ' '
+    return $singleLine.Trim() -replace '([\\`*_~|<>\[\]])', '\$1'
+}
+
 function Save-Activity {
     $tmp = "$statePath.tmp"
     $state | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath $tmp -Encoding UTF8
@@ -99,10 +104,15 @@ function Add-Summary($label, [datetime]$start, [datetime]$end) {
         $total += [math]::Max(0, $interval.end - [math]::Max($covered, $interval.start))
         $covered = [math]::Max($covered, $interval.end)
     }
-    $message = "Hundred Face | $label ($($start.ToString('yyyy-MM-dd')))`nTotal game time: $(Format-Duration $total)"
-    if ($total -eq 0) { $message = "Hundred Face | $label ($($start.ToString('yyyy-MM-dd')))`nNo detected game time." }
+    $period = $start.ToString('yyyy-MM-dd')
+    if ($label -eq 'Weekly summary') {
+        $period += ' to ' + $end.AddDays(-1).ToString('yyyy-MM-dd')
+    }
+    $message = "**Hundred Face | $label**`n*$period*"
+    if ($total -gt 0) { $message += "`n`n**Total game time:** $(Format-Duration $total)" }
+    else { $message += "`n`nNo detected game time." }
     foreach ($name in ($totals.Keys | Sort-Object)) {
-        $line = "`n$name ($(Format-Duration $totals[$name]))"
+        $line = "`n- $(Format-GameName $name) ($(Format-Duration $totals[$name]))"
         if ($message.Length + $line.Length -gt 1920) { $message += "`nAdditional games omitted."; break }
         $message += $line
     }
@@ -144,14 +154,16 @@ try {
                 } else {
                     $state.active.Remove($key)
                     $state.history.Add($session)
-                    $state.queue.Add("Hundred Face | Game ended`n$($session.name)`nLast seen: $(Format-Time $session.end)`nDuration: $(Format-Duration ($session.end - $session.start))")
+                    $gameName = Format-GameName $session.name
+                    $state.queue.Add("**Hundred Face | Game ended**`n`n**$gameName**`n- **Last seen:** $(Format-Time $session.end)`n- **Duration:** $(Format-Duration ($session.end - $session.start))")
                 }
                 $changed = $true
             }
             foreach ($key in $games.Keys) {
                 if ($state.active.ContainsKey($key)) { continue }
                 $state.active[$key] = [pscustomobject]@{ name = $games[$key]; start = $now; end = $now }
-                $state.queue.Add("Hundred Face | Game started`n$($games[$key])`nStarted: $(Format-Time $now)")
+                $gameName = Format-GameName $games[$key]
+                $state.queue.Add("**Hundred Face | Game started**`n`n**$gameName**`n- **Started:** $(Format-Time $now)")
                 $changed = $true
             }
             $today = $clock.LocalDateTime.Date
